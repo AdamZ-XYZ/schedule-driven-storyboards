@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "opc-ai-skills": {
+      "command": "python",
+      "args": ["-m", "opc_mcp.server"],
+      "cwd": "/path/to/OPC-AI-Skills",
+      "env": {
+        "OPC_BASE_URL": "https://{tenant}.oraclecloud.com/api/restapi/v1",
+        "OPC_TOKEN_URL": "https://{tenant}.oraclecloud.com/oauth/token",
+        "OPC_CLIENT_ID": "your-client-id",
+        "OPC_CLIENT_SECRET": "your-client-secret",
+        "OPC_PROJECT_ID": "your-project-id",
+        "SESSION_GRACE_MINUTES": "10",
+        "TRANSPORT": "stdio"
+      }
+    }
+  }
+}
