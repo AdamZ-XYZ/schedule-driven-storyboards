@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +27,13 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
     audit_log_file: str = "opc_audit.log"
+
+    @field_validator("audit_log_file")
+    @classmethod
+    def _no_absolute_log_path(cls, v: str) -> str:
+        if Path(v).is_absolute():
+            raise ValueError("audit_log_file must be a relative path, not absolute")
+        return v
 
 
 settings = Settings()

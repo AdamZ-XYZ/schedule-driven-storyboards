@@ -1,5 +1,8 @@
-from opc_mcp.errors import UndoNotPossible
+from pydantic import ValidationError as PydanticValidationError
+
+from opc_mcp.errors import UndoNotPossible, ValidationError
 from opc_mcp.middleware import safe_tool
+from opc_mcp.schemas import ActivityUpdate, WBSNodeUpdate, RelationshipUpdate, CalendarUpdate
 from opc_mcp.server import mcp, opc_client, session_mgr
 from opc_client.endpoints import OPCEndpoints
 
@@ -87,21 +90,27 @@ async def _reverse_operation(session_id: str, op_id: str, raise_on_irreversible:
     pid = session_mgr.get_project(session_id)
 
     if op.tool == "delete_activity":
-        # Recreate by PATCHing isn't possible after delete — we POST the before state
-        await opc_client.post(
-            OPCEndpoints.ACTIVITIES.format(project_id=pid),
-            body=op.before,
-        )
+        # Recreate: POST the before state (re-validate to guard against log corruption)
+        try:
+            from opc_mcp.schemas import ActivityCreate
+            payload = ActivityCreate.model_validate(op.before).model_dump(exclude_none=True, mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
+        await opc_client.post(OPCEndpoints.ACTIVITIES.format(project_id=pid), body=payload)
         snapshot = session_mgr.get_snapshot(session_id)
         if snapshot is not None:
             snapshot.activities.append(op.before)
 
     elif op.tool == "update_activity":
+        try:
+            payload = ActivityUpdate.model_validate(op.before).model_dump(exclude_none=True, mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
         await opc_client.patch(
             OPCEndpoints.ACTIVITY.format(project_id=pid, activity_id=op.entity_id),
-            body=op.before,
+            body=payload,
         )
-        await session_mgr.apply_write(session_id, "activities", op.entity_id, op.before, id_field="activityId")
+        await session_mgr.apply_write(session_id, "activities", op.entity_id, payload, id_field="activityId")
 
     elif op.tool == "create_activity":
         entity_id = op.entity_id if op.entity_id != "new" else None
@@ -112,29 +121,46 @@ async def _reverse_operation(session_id: str, op_id: str, raise_on_irreversible:
                 snapshot.activities = [a for a in snapshot.activities if a.get("activityId") != entity_id]
 
     elif op.tool == "update_wbs_node":
+        try:
+            payload = WBSNodeUpdate.model_validate(op.before).model_dump(exclude_none=True, mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
         await opc_client.patch(
             OPCEndpoints.WBS_NODE.format(project_id=pid, wbs_id=op.entity_id),
-            body=op.before,
+            body=payload,
         )
-        await session_mgr.apply_write(session_id, "wbs_nodes", op.entity_id, op.before, id_field="wbsId")
+        await session_mgr.apply_write(session_id, "wbs_nodes", op.entity_id, payload, id_field="wbsId")
 
     elif op.tool == "delete_relationship":
-        await opc_client.post(OPCEndpoints.RELS.format(project_id=pid), body=op.before)
+        try:
+            from opc_mcp.schemas import RelationshipCreate
+            payload = RelationshipCreate.model_validate(op.before).model_dump(mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
+        await opc_client.post(OPCEndpoints.RELS.format(project_id=pid), body=payload)
         snapshot = session_mgr.get_snapshot(session_id)
         if snapshot is not None:
             snapshot.relationships.append(op.before)
 
     elif op.tool == "update_relationship":
+        try:
+            payload = RelationshipUpdate.model_validate(op.before).model_dump(exclude_none=True, mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
         await opc_client.patch(
             OPCEndpoints.REL.format(project_id=pid, rel_id=op.entity_id),
-            body=op.before,
+            body=payload,
         )
-        await session_mgr.apply_write(session_id, "relationships", op.entity_id, op.before, id_field="relationshipId")
+        await session_mgr.apply_write(session_id, "relationships", op.entity_id, payload, id_field="relationshipId")
 
     elif op.tool == "update_calendar":
+        try:
+            payload = CalendarUpdate.model_validate(op.before).model_dump(exclude_none=True, mode="json")
+        except PydanticValidationError as e:
+            raise UndoNotPossible(f"Stored before state is invalid: {e}") from e
         await opc_client.patch(
             OPCEndpoints.CALENDAR.format(project_id=pid, calendar_id=op.entity_id),
-            body=op.before,
+            body=payload,
         )
         await session_mgr.apply_write(session_id, "calendars", op.entity_id, op.before, id_field="calendarId")
 

@@ -3,6 +3,7 @@ import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
 
 @dataclass
@@ -50,7 +51,10 @@ class SQLiteCache(CacheBackend):
     """Optional persistent cache. Useful when the server process restarts mid-session."""
 
     def __init__(self, db_path: str = "opc_sessions.db") -> None:
-        self._db_path = db_path
+        resolved = Path(db_path).resolve()
+        if resolved.is_absolute() and not str(resolved).startswith(str(Path.cwd())):
+            raise ValueError(f"Cache db_path must be within the working directory, got: {db_path}")
+        self._db_path = str(resolved)
         self._init_db()
 
     def _init_db(self) -> None:

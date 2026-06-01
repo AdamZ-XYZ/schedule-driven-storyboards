@@ -89,9 +89,20 @@ async def _execute_with_retry(fn: Callable, args: tuple, kwargs: dict, max_retri
     return {"error": "internal", "message": "Retry loop exhausted unexpectedly"}
 
 
+_REDACT_KEYS = frozenset({"session_id", "token", "secret", "password", "client_secret", "access_token"})
+
+
 def _safe_repr(obj: Any) -> str:
     try:
-        s = repr(obj)
+        if isinstance(obj, dict):
+            safe = {k: "***" if k in _REDACT_KEYS else v for k, v in obj.items()}
+            s = repr(safe)
+        elif isinstance(obj, (list, tuple)):
+            s = repr(type(obj)(  # type: ignore[call-arg]
+                _safe_repr(item) if isinstance(item, dict) else item for item in obj
+            ))
+        else:
+            s = repr(obj)
         return s[:200] if len(s) > 200 else s
     except Exception:
         return "<unrepresentable>"

@@ -109,9 +109,11 @@ class OPCClient:
     @staticmethod
     def _handle(response: httpx.Response, expect_body: bool = True) -> Any:
         if response.is_error:
-            exc = OPCAPIError(response.status_code, response.text)
+            # Truncate raw body to avoid leaking OPC internals (stack traces, server paths, SQL)
+            raw = response.text[:300] if response.text else ""
+            exc = OPCAPIError(response.status_code, raw)
             if response.status_code >= 500:
-                raise TransientError(str(exc)) from exc
+                raise TransientError(f"OPC server error {response.status_code}") from exc
             raise exc
         if not expect_body or response.status_code == 204:
             return None

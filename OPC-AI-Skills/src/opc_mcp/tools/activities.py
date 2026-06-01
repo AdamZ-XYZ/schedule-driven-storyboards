@@ -8,6 +8,7 @@ from opc_client.endpoints import OPCEndpoints
 
 
 @mcp.tool()
+@safe_tool
 async def init_session(project_id: str | None = None, session_id: str | None = None) -> dict:
     """Start a new editing session and snapshot the project baseline.
 
