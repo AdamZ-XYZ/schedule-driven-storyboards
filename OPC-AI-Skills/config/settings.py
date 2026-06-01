@@ -15,10 +15,15 @@ class Settings(BaseSettings):
     opc_project_id: str = ""
 
     session_grace_minutes: int = 10
-    cache_backend: str = "memory"  # "memory" or "sqlite"
-    transport: str = "stdio"       # "stdio" or "sse"
+    cache_backend: str = "memory"       # "memory" or "sqlite"
+    transport: str = "stdio"            # "stdio" or "sse"
+
+    # Safety settings
+    allowed_project_ids: list[str] = []  # empty = allow any project
+    max_writes_per_session: int = 50
 
     log_level: str = "INFO"
+    audit_log_file: str = "opc_audit.log"
 
 
 settings = Settings()
